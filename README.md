@@ -25,7 +25,7 @@ FarmGuard is an IoT-enabled hexacopter drone system designed to monitor crops in
 
 ## 💻 Image Processing
 
-- Platform: PC or Raspberry Pi
+- Platform: PC 
 - Library: OpenCV (Python)
 - Function: Detect stressed/pest-affected regions
 - Action: Activates servo nozzle to spray pesticide only on detected areas
