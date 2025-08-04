@@ -1,0 +1,57 @@
+import cv2
+import urllib.request
+import numpy as np
+
+# Replace with your ESP32-CAM stream URL
+url = 'http://192.168.1.55:81/stream'
+
+stream = urllib.request.urlopen(url)
+buffer = b''
+
+while True:
+    buffer += stream.read(1024)
+    a = buffer.find(b'\xff\xd8')  # JPEG start
+    b = buffer.find(b'\xff\xd9')  # JPEG end
+
+    if a != -1 and b != -1:
+        jpg = buffer[a:b+2]
+        buffer = buffer[b+2:]
+        frame = cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+
+        if frame is None:
+            continue
+
+        # Resize (optional)
+        frame = cv2.resize(frame, (640, 480))
+
+        # Convert to HSV
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+        # Define unhealthy region color (brown/yellow, adjust if needed)
+        lower_unhealthy = np.array([10, 50, 50])
+        upper_unhealthy = np.array([30, 255, 255])
+
+        # Mask unhealthy area
+        mask = cv2.inRange(hsv, lower_unhealthy, upper_unhealthy)
+        unhealthy_area = cv2.bitwise_and(frame, frame, mask=mask)
+
+        # Highlight unhealthy area with transparent red overlay
+        overlay = frame.copy()
+        overlay[mask > 0] = (0, 0, 255)  # Red in BGR
+        result = cv2.addWeighted(overlay, 0.4, frame, 0.6, 0)
+
+        # Calculate % of unhealthy area
+        total_pixels = frame.shape[0] * frame.shape[1]
+        unhealthy_pixels = cv2.countNonZero(mask)
+        percent_unhealthy = (unhealthy_pixels / total_pixels) * 100
+
+        # Add text
+        cv2.putText(result, f"Unhealthy Crop Area: {percent_unhealthy:.2f}%", (20, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 2, cv2.LINE_AA)
+
+        cv2.imshow("Live Crop Health Monitor", result)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+cv2.destroyAllWindows()
